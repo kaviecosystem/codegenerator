@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KAVI Code Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.17.0/ethers.umd.min.js"></script>
+<script>window.ethers||document.write('<script src="https://cdn.jsdelivr.net/npm/[email protected]/dist/ethers.umd.min.js"><\/script>')</script>
+<script>window.ethers||document.write('<script src="https://unpkg.com/[email protected]/dist/ethers.umd.min.js"><\/script>')</script>
+<style>
+  :root{--bg:#0b0e14;--panel:#141925;--panel2:#1b2130;--line:#28303f;--txt:#e6eaf2;--muted:#8a94a6;--accent:#5b8cff;--accent2:#38d39f;--danger:#ff6b6b;--wa:#25d366;--radius:14px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#182034,transparent),var(--bg);color:var(--txt);min-height:100vh;padding:32px 16px}
+  .wrap{max-width:760px;margin:0 auto;text-align:center}
+  h1{font-size:26px;margin:0 0 22px}
+  .sub{color:var(--muted);margin:0 0 24px;font-size:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+  .row{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;flex:1;min-width:130px}
+  .stat .k{font-size:12px;color:var(--muted)}
+  .stat .v{font-size:17px;font-weight:600;margin-top:2px;word-break:break-all}
+  .stat .sm{font-size:11px;color:var(--muted);margin-top:2px}
+  button{cursor:pointer;border:none;border-radius:10px;padding:12px 18px;font-size:14px;font-weight:600;color:#fff;background:var(--accent);transition:.15s}
+  button:hover{filter:brightness(1.1)} button:disabled{opacity:.45;cursor:not-allowed}
+  button.ghost{background:var(--panel2);border:1px solid var(--line)}
+  button.green{background:var(--accent2);color:#06231a} button.red{background:var(--danger)}
+  button.wa{background:var(--wa);color:#053d1c}
+  input[type=text]{background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:11px 12px;font-size:14px;width:100%;font-family:ui-monospace,Menlo,monospace}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:14px}
+  .code{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center;font-family:ui-monospace,Menlo,monospace;font-size:14px;letter-spacing:1px}
+  .muted{color:var(--muted);font-size:13px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:12px 18px;border-radius:10px;font-size:14px;opacity:0;transition:.2s;pointer-events:none}
+  .toast.show{opacity:1}
+  a{color:var(--accent)} code{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:12px}
+  .warn{border-color:#4a3b2a;background:#241d12;color:#e8c48a}
+  .admin{border-color:#3a2a4a;background:#1c1526}
+  .step{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px}
+  .badge{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--line);color:var(--muted)}
+  .badge.ok{background:#0f2b20;border-color:#1f7a56;color:var(--accent2)}
+  .badge.bad{background:#2b1213;border-color:#7a2a2a;color:#ff9b9b}
+  .num{width:24px;height:24px;flex:none;border-radius:50%;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center;font-size:12px;font-weight:700}
+  .num.done{background:var(--accent2);color:#06231a;border-color:var(--accent2)}
+  hr{border:none;border-top:1px solid var(--line);margin:16px 0}
+  h3{margin:0 0 12px;font-size:15px}
+  .drow{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:6px}
+  .drow .addr{font-family:ui-monospace,Menlo,monospace;font-size:12px;flex:1;text-align:left;word-break:break-all}
+  .mini{padding:6px 10px;font-size:12px;border-radius:8px}
+  .modalOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:1000}
+  .modalOverlay.show{display:flex}
+  .modalBox{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px;max-width:420px;width:100%;text-align:center}
+  .modalBox h4{margin:0 0 10px;font-size:16px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .modalBox p{margin:0 0 16px;font-size:13.5px;line-height:1.5;color:var(--txt)}
+  .modalBox .row{justify-content:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>KAVI Code Generator</h1>
+
+  <div id="cfgWarn" class="card warn" style="display:none">
+    <code>CONFIG.CONTRACT_ADDRESS</code> is not set. Add it at the top of <code>index.html</code>.
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div><div class="muted">Wallet</div><div id="acct" style="font-weight:600">Not connected</div></div>
+      <div class="row" style="gap:8px">
+        <span id="distBadge" class="badge">Not a distributor</span>
+        <button id="connectBtn">Connect Wallet</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card admin" id="adminCard" style="display:none">
+    <h3>Admin · distributor active/inactive</h3>
+    <input type="text" id="adminAddr" placeholder="Distributor wallet address (0x...)" />
+    <div class="row" style="margin-top:10px;gap:8px">
+      <button class="green" id="activateBtn">Activate</button>
+      <button class="red" id="deactivateBtn">Deactivate</button>
+      <button class="ghost" id="checkBtn">Check status</button>
+      <span class="muted" id="adminStatus"></span>
+    </div>
+    <div class="muted" style="margin-top:8px">Suspends or resumes a registered distributor. Registration and payment are kept.</div>
+    <hr>
+    <div class="row" style="justify-content:space-between">
+      <strong style="font-size:14px">Distributors</strong>
+      <div style="display:flex;gap:8px">
+        <button class="ghost mini" id="loadDistBtn">Refresh list</button>
+        <button class="ghost mini" id="copyDistBtn">Copy all</button>
+      </div>
+    </div>
+    <div class="muted" id="distListStatus" style="margin-top:6px;text-align:left"></div>
+    <div id="distList" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="gap:8px">
+      <div class="stat"><div class="k">Distributor fee</div><div class="v" id="fee">$10</div><div class="sm" id="feeKavi">— KAVI</div></div>
+      <div class="stat"><div class="k">Price / 100 codes</div><div class="v" id="price">$0.5</div><div class="sm" id="priceKavi">— KAVI</div></div>
+      <div class="stat"><div class="k">Your KAVI</div><div class="v" id="bal">—</div></div>
+      <div class="stat"><div class="k">Total codes</div><div class="v" id="total">—</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="step"><span class="num" id="n1">1</span><strong>Approve & Become Distributor</strong><span class="muted">$10 KAVI (one time)</span></div>
+    <button id="distBtn" disabled>Approve & Become Distributor</button>
+    <hr>
+    <div class="step"><span class="num" id="n2">2</span><strong>Generate 100 Codes</strong><span class="muted">$0.5 KAVI per batch</span></div>
+    <button id="genBtn" class="green" disabled>Generate 100 Codes</button>
+    <button id="viewBtn" class="ghost" style="margin-left:8px" disabled>View my codes (sign)</button>
+    <div class="muted" id="status" style="margin-top:10px"></div>
+    <div class="muted" style="margin-top:6px">Codes are only visible from your wallet only once — download them immediately.</div>
+  </div>
+
+  <div class="card" id="outCard" style="display:none">
+    <div class="row">
+      <div><strong>Your Codes (<span id="count">0</span>)</strong> <span class="muted" id="batchInfo"></span></div>
+      <div style="display:flex;gap:8px">
+        <button class="wa" id="waBtn">Share on WhatsApp</button>
+        <button class="ghost" id="copyBtn">Copy all codes</button>
+        <button class="ghost" id="dlBtn">Download .txt</button>
+      </div>
+    </div>
+    <div class="grid" id="codesGrid"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modalOverlay" id="walletNotice">
+  <div class="modalBox">
+    <h4>⚠️ Important</h4>
+    <p>Codes are only visible from your wallet only once — download them immediately.</p>
+    <div class="row"><button id="walletNoticeOk">Got it</button></div>
+  </div>
+</div>
+
+<script>
+const CONFIG = {
+  CONTRACT_ADDRESS: "0x58070Bbd4a9a9f35d1892Fc7e8655a3Af4b39Efe",
+  CHAIN_ID: 56, CHAIN_NAME: "BNB Smart Chain",
+  RPC_URL: "https://bsc-dataseed.binance.org",
+  SLIPPAGE: 0.05,
+  DEPLOY_BLOCK: 122037034
+};
+
+const GEN_ABI = [
+  "function becomeDistributor(uint256 maxKavi)",
+  "function generateCodes(uint256 maxKavi) returns (uint256)",
+  "function userBatchCount(address) view returns (uint256)",
+  "function isDistributor(address) view returns (bool)",
+  "function isActive(address) view returns (bool)",
+  "function isActiveDistributor(address) view returns (bool)",
+  "function setActive(address user, bool active)",
+  "function feeInKavi() view returns (uint256)",
+  "function priceInKavi() view returns (uint256)",
+  "function distributorFeeUsd() view returns (uint256)",
+  "function pricePerBatchUsd() view returns (uint256)",
+  "function totalGenerated() view returns (uint256)",
+  "function kaviToken() view returns (address)",
+  "function owner() view returns (address)",
+  "event DistributorRegistered(address indexed user, uint256 kaviPaid, uint256 fee, uint256 toReserve)",
+  "event DistributorActiveSet(address indexed user, bool active)",
+  "event BatchGenerated(address indexed user, uint256 indexed userBatchId, uint256 globalBatchId, uint256 createdAt, uint256 expiresAt, uint256 kaviPaid, uint256 fee, uint256 toReserve)"
+];
+const ERC20_ABI = [
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function balanceOf(address) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)"
+];
+
+let provider, signer, account, gen, token, isOwner=false;
+let tokenDecimals=18, tokenSymbol="KAVI";
+let feeKavi=0n, priceKavi=0n, allowance=0n, isDist=false, active=false, lastCodes=[];
+let sessionSecret = null;
+const CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const VIEW_MSG = () => `KAVI Codes access\nContract: ${CONFIG.CONTRACT_ADDRESS}\nChain: ${CONFIG.CHAIN_ID}`;
+
+const $ = id => document.getElementById(id);
+const toast = m => { const t=$("toast"); t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2400); };
+const showWalletNotice = () => $("walletNotice").classList.add("show");
+const hideWalletNotice = () => $("walletNotice").classList.remove("show");
+const setStatus = s => $("status").textContent = s;
+const fmt = v => Number(ethers.formatUnits(v, tokenDecimals));
+const withSlip = v => (v * BigInt(Math.round((1+CONFIG.SLIPPAGE)*1000))) / 1000n;
+
+function secsLeft(expiresAt){ return Math.max(0, expiresAt - Math.floor(Date.now()/1000)); }
+function fmtLeft(expiresAt){ const s=secsLeft(expiresAt); if(s<=0) return "expired"; const h=s/3600; return h<48 ? h.toFixed(1)+" hours" : (h/24).toFixed(1)+" days"; }
+
+async function getSecret(){
+  if (sessionSecret) return sessionSecret;
+  setStatus("Sign the message in your wallet to unlock codes…");
+  const sig = await signer.signMessage(VIEW_MSG());
+  sessionSecret = ethers.keccak256(sig);
+  return sessionSecret;
+}
+function deriveCode(secret, batchId, i){
+  let v = BigInt(ethers.keccak256(ethers.solidityPacked(["bytes32","uint256","uint256"],[secret, BigInt(batchId), BigInt(i)]))) & 0xFFFFFFFFFFn;
+  let s = ""; for(let k=0;k<8;k++){ s += CHARSET[Number(v & 31n)]; v >>= 5n; } return s;
+}
+function deriveBatch(secret, batchId){
+  const codes=[], seen=new Set(); let i=0;
+  while(codes.length<100){ const c=deriveCode(secret,batchId,i++); if(seen.has(c))continue; seen.add(c); codes.push(c); }
+  return codes;
+}
+async function myBatches(){
+  const f = gen.filters.BatchGenerated(account);
+  const evs = await gen.queryFilter(f, CONFIG.DEPLOY_BLOCK || 0, "latest");
+  return evs.map(e => ({ id: Number(e.args.userBatchId), createdAt: Number(e.args.createdAt), expiresAt: Number(e.args.expiresAt) })).sort((a,b)=>a.id-b.id);
+}
+
+if (!CONFIG.CONTRACT_ADDRESS) $("cfgWarn").style.display="block";
+if (typeof ethers === "undefined"){ $("cfgWarn").style.display="block"; $("cfgWarn").textContent="ethers library did not load. Reload the page, or serve the file over http (npx serve .) instead of opening it directly."; }
+
+$("connectBtn").onclick = connect;
+$("walletNoticeOk").onclick = hideWalletNotice;
+$("walletNotice").onclick = (e) => { if (e.target.id === "walletNotice") hideWalletNotice(); };
+$("distBtn").onclick = becomeDistributor;
+$("genBtn").onclick = generate;
+$("viewBtn").onclick = viewMyCodes;
+$("activateBtn").onclick = () => adminSet(true);
+$("deactivateBtn").onclick = () => adminSet(false);
+$("checkBtn").onclick = adminCheck;
+$("copyBtn").onclick = copyAll;
+
+async function copyAll(){
+  if(!lastCodes.length){ toast("No codes to copy"); return; }
+  copyText(lastCodes.join("\n"), `Copied ${lastCodes.length} codes`);
+}
+$("dlBtn").onclick = () => { const b=new Blob([lastCodes.join("\n")],{type:"text/plain"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="codes.txt"; a.click(); };
+$("waBtn").onclick = shareWhatsApp;
+$("loadDistBtn").onclick = loadDistributors;
+$("copyDistBtn").onclick = () => { if(!distRows.length){ toast("No distributors"); return; } copyText(distRows.map(r=>r.a).join("\n"), `Copied ${distRows.length} addresses`); };
+
+let distRows = [];
+async function copyText(text, msg){
+  try{
+    if (navigator.clipboard && window.isSecureContext){ await navigator.clipboard.writeText(text); }
+    else { const ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); }
+    toast(msg||"Copied");
+  }catch(e){ console.error(e); toast("Copy failed"); }
+}
+async function loadDistributors(){
+  try{
+    $("distListStatus").textContent = "Loading…";
+    const evs = await gen.queryFilter(gen.filters.DistributorRegistered(), CONFIG.DEPLOY_BLOCK||0, "latest");
+    const addrs = [...new Set(evs.map(e => e.args.user))];
+    const rows = [];
+    for (const a of addrs){
+      const reg = await gen.isDistributor(a);
+      if (!reg) continue;
+      const act = await gen.isActive(a);
+      rows.push({ a, act });
+    }
+    renderDistributors(rows);
+    $("distListStatus").textContent = `${rows.length} distributor(s) · ${rows.filter(r=>r.act).length} active`;
+  }catch(e){ console.error(e); $("distListStatus").textContent = "Load failed"; toast(err(e)); }
+}
+function renderDistributors(rows){
+  distRows = rows;
+  const el = $("distList"); el.innerHTML = "";
+  if (!rows.length){ el.innerHTML = '<div class="muted" style="text-align:left">No distributors yet</div>'; return; }
+  for (const r of rows){
+    const div = document.createElement("div"); div.className = "drow";
+    const addr = document.createElement("div"); addr.className = "addr"; addr.textContent = r.a;
+    const badge = document.createElement("span"); badge.className = "badge " + (r.act ? "ok" : "bad"); badge.textContent = r.act ? "active" : "inactive";
+    const cp = document.createElement("button"); cp.className = "ghost mini"; cp.textContent = "Copy"; cp.onclick = () => copyText(r.a, "Address copied");
+    const use = document.createElement("button"); use.className = "ghost mini"; use.textContent = "Use"; use.onclick = () => { $("adminAddr").value = r.a; adminCheck(); };
+    div.appendChild(addr); div.appendChild(badge); div.appendChild(cp); div.appendChild(use);
+    el.appendChild(div);
+  }
+}
+
+function shareWhatsApp(){
+  if(!lastCodes.length){ toast("No codes to share"); return; }
+  const header = `KAVI codes (${lastCodes.length})`;
+  const text = header + "\n\n" + lastCodes.join("\n");
+  const url = "https://wa.me/?text=" + encodeURIComponent(text);
+  if (text.length > 3500) toast("Long list — WhatsApp may trim it. Download is safer.");
+  window.open(url, "_blank");
+}
+
+async function connect(){
+  if (typeof ethers === "undefined"){ toast("ethers library failed to load — check your internet/CDN and reload"); setStatus("Library not loaded. Reload the page on a normal internet connection."); return; }
+  if (!window.ethereum){ toast("Please install MetaMask"); return; }
+  provider = new ethers.BrowserProvider(window.ethereum);
+  await provider.send("eth_requestAccounts", []);
+  const net = await provider.getNetwork();
+  if (Number(net.chainId) !== CONFIG.CHAIN_ID){
+    try { await window.ethereum.request({ method:"wallet_switchEthereumChain", params:[{ chainId:"0x"+CONFIG.CHAIN_ID.toString(16) }] }); }
+    catch(e){
+      try { await window.ethereum.request({ method:"wallet_addEthereumChain", params:[{ chainId:"0x"+CONFIG.CHAIN_ID.toString(16), chainName:CONFIG.CHAIN_NAME, nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18}, rpcUrls:[CONFIG.RPC_URL], blockExplorerUrls:["https://bscscan.com"] }] }); }
+      catch(e2){ toast(`Switch to ${CONFIG.CHAIN_NAME}`); return; }
+    }
+    provider = new ethers.BrowserProvider(window.ethereum);
+  }
+  signer = await provider.getSigner();
+  account = await signer.getAddress();
+  $("acct").textContent = account.slice(0,6)+"…"+account.slice(-4);
+  $("connectBtn").style.display = "none";
+
+  gen = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, GEN_ABI, signer);
+  const tokenAddr = await gen.kaviToken();
+  token = new ethers.Contract(tokenAddr, ERC20_ABI, signer);
+  try { tokenDecimals = Number(await token.decimals()); } catch(e){}
+  try { tokenSymbol = await token.symbol(); } catch(e){}
+
+  try { const o = await gen.owner(); isOwner = o.toLowerCase() === account.toLowerCase(); } catch(e){ isOwner=false; }
+  $("adminCard").style.display = isOwner ? "block" : "none";
+  if (isOwner) loadDistributors();
+
+  showWalletNotice();
+  await refresh();
+}
+
+async function refresh(){
+  const feeUsd = await gen.distributorFeeUsd();
+  const priceUsd = await gen.pricePerBatchUsd();
+  feeKavi = await gen.feeInKavi();
+  priceKavi = await gen.priceInKavi();
+  isDist = await gen.isDistributor(account);
+  active = await gen.isActive(account);
+  const bal = await token.balanceOf(account);
+  const total = await gen.totalGenerated();
+  allowance = await token.allowance(account, CONFIG.CONTRACT_ADDRESS);
+
+  $("fee").textContent   = "$" + Number(ethers.formatUnits(feeUsd, 18));
+  $("price").textContent = "$" + Number(ethers.formatUnits(priceUsd, 18));
+  $("feeKavi").textContent   = "≈ " + fmt(feeKavi).toFixed(2) + " " + tokenSymbol;
+  $("priceKavi").textContent = "≈ " + fmt(priceKavi).toFixed(2) + " " + tokenSymbol;
+  $("bal").textContent   = fmt(bal).toFixed(2) + " " + tokenSymbol;
+  $("total").textContent = total.toString();
+
+  if (!isDist){ $("distBadge").textContent="Not a distributor"; $("distBadge").className="badge"; }
+  else if (active){ $("distBadge").textContent="Active distributor"; $("distBadge").className="badge ok"; }
+  else { $("distBadge").textContent="Inactive (suspended)"; $("distBadge").className="badge bad"; }
+
+  $("distBtn").disabled = isDist || bal < feeKavi;
+  $("distBtn").textContent = isDist ? "Already a distributor" : "Approve & Become Distributor";
+  $("n1").className = "num" + (isDist ? " done" : "");
+
+  const canGen = isDist && active && bal >= priceKavi;
+  $("genBtn").disabled = !canGen;
+  $("viewBtn").disabled = !isDist;
+  $("n2").className = "num" + (isDist && active ? " done" : "");
+
+  if (!isDist) setStatus(bal < feeKavi ? "Not enough KAVI for the $10 fee" : "Step 1: approve & become a distributor");
+  else if (!active) setStatus("Your account was set inactive by the admin — generation is disabled.");
+  else if (bal < priceKavi) setStatus("Not enough KAVI for a batch");
+  else setStatus("Ready to generate");
+}
+
+async function ensureAllowance(minNeeded){
+  if (allowance >= minNeeded) return;
+  setStatus("Approving KAVI… confirm in your wallet");
+  const target = withSlip(feeKavi + priceKavi*100n);
+  const amount = target > minNeeded ? target : minNeeded;
+  const tx = await token.approve(CONFIG.CONTRACT_ADDRESS, amount);
+  await tx.wait();
+  allowance = amount;
+}
+async function becomeDistributor(){
+  try{ $("distBtn").disabled=true;
+    await ensureAllowance(withSlip(feeKavi));
+    setStatus("Registering… confirm in your wallet");
+    const tx = await gen.becomeDistributor(withSlip(feeKavi));
+    setStatus("Mining… "+tx.hash.slice(0,10)+"…"); await tx.wait();
+    toast("You are now an authorized distributor"); await refresh();
+  }catch(e){ console.error(e); toast(err(e)); setStatus("Failed"); await refresh(); }
+}
+async function generate(){
+  try{ $("genBtn").disabled=true;
+    await ensureAllowance(withSlip(priceKavi));
+    setStatus("Sending transaction… confirm in your wallet");
+    const tx = await gen.generateCodes(withSlip(priceKavi));
+    setStatus("Mining… "+tx.hash.slice(0,10)+"…");
+    const receipt = await tx.wait();
+    let batchId=null, expiresAt=0; for(const log of receipt.logs){ try{ const p=gen.interface.parseLog(log); if(p&&p.name==="BatchGenerated"){ batchId=Number(p.args.userBatchId); expiresAt=Number(p.args.expiresAt); break; } }catch(e){} }
+    const secret = await getSecret();
+    lastCodes = deriveBatch(secret, batchId);
+    render(lastCodes, [batchId]);
+    toast(`${lastCodes.length} codes generated!`);
+    setStatus(`Done — visible only from your wallet · expires in ${fmtLeft(expiresAt)}.`); await refresh();
+  }catch(e){ console.error(e); toast(err(e)); setStatus("Generate failed"); await refresh(); }
+}
+
+async function viewMyCodes(){
+  try{
+    $("viewBtn").disabled=true;
+    const batches = await myBatches();
+    if(batches.length===0){ toast("No batches yet"); setStatus("No batches found"); $("viewBtn").disabled=false; return; }
+    const now = Math.floor(Date.now()/1000);
+    const activeBatches = batches.filter(b => now <= b.expiresAt);
+    const expired = batches.length - activeBatches.length;
+    if(activeBatches.length===0){
+      $("outCard").style.display="none"; lastCodes=[];
+      toast("All codes expired"); setStatus(`All ${batches.length} batch(es) expired (24-hour limit) — codes are no longer shown.`);
+      $("viewBtn").disabled=false; return;
+    }
+    const secret = await getSecret();
+    let all=[]; const labels=[];
+    for(const b of activeBatches){ all = all.concat(deriveBatch(secret, b.id)); labels.push(b.id); }
+    lastCodes = all; render(all, labels);
+    const soonest = Math.min(...activeBatches.map(b=>b.expiresAt));
+    const extra = expired>0 ? ` · ${expired} expired (hidden)` : "";
+    toast(`${all.length} codes unlocked`);
+    setStatus(`${activeBatches.length} active batch × 100 = ${all.length} codes · earliest expiry ${fmtLeft(soonest)}${extra}`);
+    $("viewBtn").disabled=false;
+  }catch(e){ console.error(e); toast(err(e)); setStatus("View failed"); $("viewBtn").disabled=false; }
+}
+
+function adminAddr(){ const a=$("adminAddr").value.trim(); if(!ethers.isAddress(a)){ toast("Enter a valid address"); return null; } return a; }
+async function adminSet(activeFlag){
+  const a = adminAddr(); if(!a) return;
+  try{ $("adminStatus").textContent = (activeFlag?"Activating":"Deactivating")+"…";
+    const tx = await gen.setActive(a, activeFlag);
+    await tx.wait(); toast(activeFlag?"Activated":"Deactivated"); await adminCheck();
+    if (a.toLowerCase()===account.toLowerCase()) await refresh();
+  }catch(e){ console.error(e); toast(err(e)); $("adminStatus").textContent="Failed"; }
+}
+async function adminCheck(){
+  const a = adminAddr(); if(!a) return;
+  try{
+    const reg = await gen.isDistributor(a);
+    const act = await gen.isActive(a);
+    $("adminStatus").textContent = reg ? (act ? "Active" : "Inactive (registered)") : "Not registered";
+  }catch(e){ console.error(e); $("adminStatus").textContent="—"; }
+}
+
+function render(codes, batchLabels){
+  $("outCard").style.display="block";
+  $("count").textContent=codes.length;
+  $("batchInfo").textContent = batchLabels ? ("Batch: "+batchLabels.map(b=>"#"+b).join(", ")) : "";
+  const g=$("codesGrid"); g.innerHTML="";
+  for(const c of codes){ const d=document.createElement("div"); d.className="code"; d.textContent=c; g.appendChild(d); }
+}
+function err(e){ return (e && (e.shortMessage||e.reason||e.message) || "Error").slice(0,100); }
+if (window.ethereum){
+  window.ethereum.on?.("accountsChanged", () => { if (account) connect(); });
+  window.ethereum.on?.("chainChanged",   () => { if (account) connect(); });
+}
+</script>
+</body>
+</html>
